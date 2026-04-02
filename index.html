@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mango Slice ⚡</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a0a;
+      font-family: Arial;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #score {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="score">Score: 0</div>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let fruits = [];
+let particles = [];
+let score = 0;
+
+class Fruit {
+  constructor() {
+    this.x = Math.random() * canvas.width;
+    this.y = -50;
+    this.radius = 25 + Math.random() * 15;
+    this.color = `hsl(${Math.random()*360}, 80%, 60%)`;
+    this.vy = 3 + Math.random()*2;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.sliced = false;
+  }
+
+  update() {
+    this.y += this.vy;
+    this.x += this.vx;
+
+    if (this.y > canvas.height - 20) {
+      this.y = canvas.height - 20;
+      this.vy *= -0.3; // bounce
+    }
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
+
+class Particle {
+  constructor(x,y,color) {
+    this.x = x;
+    this.y = y;
+    this.size = 4 + Math.random()*4;
+    this.color = color;
+    this.vx = (Math.random()-0.5)*6;
+    this.vy = (Math.random()-0.5)*6;
+    this.life = 100;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.2;
+    this.life--;
+  }
+
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.life/100;
+    ctx.fillRect(this.x, this.y, this.size, this.size);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function spawnFruit() {
+  fruits.push(new Fruit());
+}
+
+setInterval(spawnFruit, 800);
+
+let mouse = {x:0, y:0, down:false};
+
+canvas.addEventListener("mousedown", () => mouse.down = true);
+canvas.addEventListener("mouseup", () => mouse.down = false);
+
+canvas.addEventListener("mousemove", (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+
+  if (mouse.down) {
+    slice();
+  }
+});
+
+function slice() {
+  fruits.forEach(fruit => {
+    let dx = fruit.x - mouse.x;
+    let dy = fruit.y - mouse.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist < fruit.radius && !fruit.sliced) {
+      fruit.sliced = true;
+      score++;
+      document.getElementById("score").innerText = "Score: " + score;
+
+      // juice particles
+      for (let i = 0; i < 15; i++) {
+        particles.push(new Particle(fruit.x, fruit.y, fruit.color));
+      }
+    }
+  });
+}
+
+function animate() {
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  fruits.forEach((fruit, i) => {
+    fruit.update();
+    fruit.draw();
+
+    if (fruit.sliced) {
+      fruits.splice(i,1);
+    }
+  });
+
+  particles.forEach((p,i) => {
+    p.update();
+    p.draw();
+
+    if (p.life <= 0) {
+      particles.splice(i,1);
+    }
+  });
+
+  // katana trail
+  if (mouse.down) {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mouse.x - 20, mouse.y);
+    ctx.lineTo(mouse.x + 20, mouse.y);
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+
+</body>
+</html>
