@@ -3,10 +3,10 @@
 <head>
   <title>Mango Slice ⚡</title>
   <style>
-    body { 
+    body {
       margin: 0;
       overflow: hidden;
-      background: #0a0a0a;
+      background: linear-gradient(#d7ccc8, #a1887f); /* cafe vibe */
       font-family: Arial;
     }
 
@@ -18,8 +18,9 @@
       position: fixed;
       top: 20px;
       left: 20px;
-      color: white;
+      color: black;
       font-size: 24px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -35,133 +36,146 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let fruits = [];
+let objects = [];
 let particles = [];
+let stains = [];
 let score = 0;
 
+const sliceSound = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+
 class Fruit {
-  constructor() {
-    this.x = Math.random() * canvas.width;
-    this.y = -50;
-    this.radius = 25 + Math.random() * 15;
-    this.color = `hsl(${Math.random()*360}, 80%, 60%)`;
-    this.vy = 3 + Math.random()*2;
-    this.vx = (Math.random() - 0.5) * 2;
+  constructor(x, y, emoji) {
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random()-0.5)*4;
+    this.vy = 2 + Math.random()*2;
+    this.size = 40;
+    this.emoji = emoji;
+    this.rotation = Math.random()*Math.PI;
     this.sliced = false;
   }
 
   update() {
-    this.y += this.vy;
+    this.vy += 0.2;
     this.x += this.vx;
+    this.y += this.vy;
+    this.rotation += 0.05;
 
     if (this.y > canvas.height - 20) {
-      this.y = canvas.height - 20;
-      this.vy *= -0.3; // bounce
+      stains.push({x:this.x, color:this.getColor()});
+      return false;
     }
+    return true;
   }
 
   draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
-    ctx.fill();
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.font = this.size + "px serif";
+    ctx.fillText(this.emoji, -20, 20);
+    ctx.restore();
+  }
+
+  getColor() {
+    return "rgba(255,100,100,0.4)";
   }
 }
 
-class Particle {
-  constructor(x,y,color) {
-    this.x = x;
-    this.y = y;
-    this.size = 4 + Math.random()*4;
-    this.color = color;
-    this.vx = (Math.random()-0.5)*6;
-    this.vy = (Math.random()-0.5)*6;
-    this.life = 100;
-  }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.vy += 0.2;
-    this.life--;
-  }
-
-  draw() {
-    ctx.fillStyle = this.color;
-    ctx.globalAlpha = this.life/100;
-    ctx.fillRect(this.x, this.y, this.size, this.size);
-    ctx.globalAlpha = 1;
+class Piece extends Fruit {
+  constructor(x,y,emoji,dir) {
+    super(x,y,emoji);
+    this.vx = dir * (2 + Math.random()*2);
+    this.vy = -2;
+    this.size = 35;
   }
 }
 
 function spawnFruit() {
-  fruits.push(new Fruit());
+  const emojis = ["🍎","🍉","🍊","🍓","🍍"];
+  objects.push(new Fruit(Math.random()*canvas.width, -50, emojis[Math.floor(Math.random()*emojis.length)]));
 }
+setInterval(spawnFruit, 1000);
 
-setInterval(spawnFruit, 800);
+let mouse = {x:0,y:0,down:false};
 
-let mouse = {x:0, y:0, down:false};
-
-canvas.addEventListener("mousedown", () => mouse.down = true);
-canvas.addEventListener("mouseup", () => mouse.down = false);
-
-canvas.addEventListener("mousemove", (e) => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-
-  if (mouse.down) {
-    slice();
-  }
+canvas.addEventListener("mousedown",()=>mouse.down=true);
+canvas.addEventListener("mouseup",()=>mouse.down=false);
+canvas.addEventListener("mousemove",(e)=>{
+  mouse.x=e.clientX;
+  mouse.y=e.clientY;
+  if(mouse.down) slice();
 });
 
 function slice() {
-  fruits.forEach(fruit => {
-    let dx = fruit.x - mouse.x;
-    let dy = fruit.y - mouse.y;
-    let dist = Math.sqrt(dx*dx + dy*dy);
+  objects.forEach((obj,i)=>{
+    let dx=obj.x-mouse.x;
+    let dy=obj.y-mouse.y;
+    let dist=Math.sqrt(dx*dx+dy*dy);
 
-    if (dist < fruit.radius && !fruit.sliced) {
-      fruit.sliced = true;
+    if(dist<40 && !obj.sliced){
+      obj.sliced=true;
       score++;
-      document.getElementById("score").innerText = "Score: " + score;
+      document.getElementById("score").innerText="Score: "+score;
 
-      // juice particles
-      for (let i = 0; i < 15; i++) {
-        particles.push(new Particle(fruit.x, fruit.y, fruit.color));
+      sliceSound.currentTime=0;
+      sliceSound.play();
+
+      objects.push(new Piece(obj.x,obj.y,obj.emoji,1));
+      objects.push(new Piece(obj.x,obj.y,obj.emoji,-1));
+
+      for(let i=0;i<10;i++){
+        particles.push({
+          x:obj.x,
+          y:obj.y,
+          vx:(Math.random()-0.5)*5,
+          vy:(Math.random()-0.5)*5,
+          life:50
+        });
       }
+
+      objects.splice(i,1);
     }
   });
 }
 
-function animate() {
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
+function drawStains(){
+  stains.forEach(s=>{
+    ctx.fillStyle=s.color;
+    ctx.beginPath();
+    ctx.arc(s.x, canvas.height-10, 20, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function animate(){
+  ctx.fillStyle="rgba(255,255,255,0.2)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  fruits.forEach((fruit, i) => {
-    fruit.update();
-    fruit.draw();
+  drawStains();
 
-    if (fruit.sliced) {
-      fruits.splice(i,1);
-    }
+  objects = objects.filter(o=>o.update());
+  objects.forEach(o=>o.draw());
+
+  particles.forEach((p,i)=>{
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.life--;
+
+    ctx.fillStyle="red";
+    ctx.globalAlpha=p.life/50;
+    ctx.fillRect(p.x,p.y,4,4);
+    ctx.globalAlpha=1;
+
+    if(p.life<=0) particles.splice(i,1);
   });
 
-  particles.forEach((p,i) => {
-    p.update();
-    p.draw();
-
-    if (p.life <= 0) {
-      particles.splice(i,1);
-    }
-  });
-
-  // katana trail
-  if (mouse.down) {
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 3;
+  if(mouse.down){
+    ctx.strokeStyle="white";
+    ctx.lineWidth=4;
     ctx.beginPath();
-    ctx.moveTo(mouse.x - 20, mouse.y);
-    ctx.lineTo(mouse.x + 20, mouse.y);
+    ctx.moveTo(mouse.x-25,mouse.y);
+    ctx.lineTo(mouse.x+25,mouse.y);
     ctx.stroke();
   }
 
