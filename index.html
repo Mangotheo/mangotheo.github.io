@@ -6,21 +6,16 @@
     body {
       margin: 0;
       overflow: hidden;
-      background: linear-gradient(#d7ccc8, #a1887f); /* cafe vibe */
-      font-family: Arial;
+      background: linear-gradient(#d7ccc8, #8d6e63);
     }
-
-    canvas {
-      display: block;
-    }
-
+    canvas { display:block; }
     #score {
       position: fixed;
       top: 20px;
       left: 20px;
-      color: black;
       font-size: 24px;
       font-weight: bold;
+      color: black;
     }
   </style>
 </head>
@@ -32,139 +27,122 @@
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let objects = [];
 let particles = [];
-let stains = [];
 let score = 0;
 
-const sliceSound = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+let mouse = {x:0,y:0,px:0,py:0,down:false};
 
-class Fruit {
-  constructor(x, y, emoji) {
-    this.x = x;
-    this.y = y;
-    this.vx = (Math.random()-0.5)*4;
-    this.vy = 2 + Math.random()*2;
+class Obj {
+  constructor(type){
+    this.x = Math.random()*canvas.width;
+    this.y = -50;
+    this.vx = (Math.random()-0.5)*3;
+    this.vy = 3 + Math.random()*2;
     this.size = 40;
-    this.emoji = emoji;
+    this.type = type;
     this.rotation = Math.random()*Math.PI;
-    this.sliced = false;
   }
 
-  update() {
+  update(){
     this.vy += 0.2;
     this.x += this.vx;
     this.y += this.vy;
     this.rotation += 0.05;
-
-    if (this.y > canvas.height - 20) {
-      stains.push({x:this.x, color:this.getColor()});
-      return false;
-    }
-    return true;
+    return this.y < canvas.height + 50;
   }
 
-  draw() {
+  draw(){
     ctx.save();
-    ctx.translate(this.x, this.y);
+    ctx.translate(this.x,this.y);
     ctx.rotate(this.rotation);
     ctx.font = this.size + "px serif";
-    ctx.fillText(this.emoji, -20, 20);
+
+    if(this.type==="fruit"){
+      ctx.fillText("🍉",-20,20);
+    } else {
+      ctx.fillText("💣",-20,20);
+    }
+
     ctx.restore();
   }
-
-  getColor() {
-    return "rgba(255,100,100,0.4)";
-  }
 }
 
-class Piece extends Fruit {
-  constructor(x,y,emoji,dir) {
-    super(x,y,emoji);
-    this.vx = dir * (2 + Math.random()*2);
-    this.vy = -2;
-    this.size = 35;
-  }
+function spawn(){
+  let type = Math.random()<0.8 ? "fruit" : "bomb";
+  objects.push(new Obj(type));
 }
-
-function spawnFruit() {
-  const emojis = ["🍎","🍉","🍊","🍓","🍍"];
-  objects.push(new Fruit(Math.random()*canvas.width, -50, emojis[Math.floor(Math.random()*emojis.length)]));
-}
-setInterval(spawnFruit, 1000);
-
-let mouse = {x:0,y:0,down:false};
+setInterval(spawn, 800);
 
 canvas.addEventListener("mousedown",()=>mouse.down=true);
 canvas.addEventListener("mouseup",()=>mouse.down=false);
 canvas.addEventListener("mousemove",(e)=>{
-  mouse.x=e.clientX;
-  mouse.y=e.clientY;
-  if(mouse.down) slice();
+  mouse.px = mouse.x;
+  mouse.py = mouse.y;
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
 });
 
-function slice() {
-  objects.forEach((obj,i)=>{
-    let dx=obj.x-mouse.x;
-    let dy=obj.y-mouse.y;
-    let dist=Math.sqrt(dx*dx+dy*dy);
-
-    if(dist<40 && !obj.sliced){
-      obj.sliced=true;
-      score++;
-      document.getElementById("score").innerText="Score: "+score;
-
-      sliceSound.currentTime=0;
-      sliceSound.play();
-
-      objects.push(new Piece(obj.x,obj.y,obj.emoji,1));
-      objects.push(new Piece(obj.x,obj.y,obj.emoji,-1));
-
-      for(let i=0;i<10;i++){
-        particles.push({
-          x:obj.x,
-          y:obj.y,
-          vx:(Math.random()-0.5)*5,
-          vy:(Math.random()-0.5)*5,
-          life:50
-        });
-      }
-
-      objects.splice(i,1);
-    }
-  });
+function lineHitsCircle(x1,y1,x2,y2,cx,cy,r){
+  let dx = x2-x1;
+  let dy = y2-y1;
+  let t = ((cx-x1)*dx + (cy-y1)*dy)/(dx*dx+dy*dy);
+  t = Math.max(0,Math.min(1,t));
+  let lx = x1 + t*dx;
+  let ly = y1 + t*dy;
+  let dist = Math.hypot(lx-cx, ly-cy);
+  return dist < r;
 }
 
-function drawStains(){
-  stains.forEach(s=>{
-    ctx.fillStyle=s.color;
-    ctx.beginPath();
-    ctx.arc(s.x, canvas.height-10, 20, 0, Math.PI*2);
-    ctx.fill();
-  });
+function explode(x,y,color){
+  for(let i=0;i<20;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()-0.5)*8,
+      vy:(Math.random()-0.5)*8,
+      life:60,
+      color
+    });
+  }
 }
 
-function animate(){
-  ctx.fillStyle="rgba(255,255,255,0.2)";
+function update(){
+  ctx.fillStyle="rgba(255,255,255,0.15)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  drawStains();
+  objects = objects.filter(o=>{
+    o.update();
+    o.draw();
 
-  objects = objects.filter(o=>o.update());
-  objects.forEach(o=>o.draw());
+    if(mouse.down && lineHitsCircle(mouse.px,mouse.py,mouse.x,mouse.y,o.x,o.y,30)){
+      
+      if(o.type==="fruit"){
+        score++;
+        explode(o.x,o.y,"red");
+      } else {
+        score = Math.max(0, score-2);
+        explode(o.x,o.y,"black");
+      }
+
+      document.getElementById("score").innerText="Score: "+score;
+      return false;
+    }
+
+    return o.y < canvas.height;
+  });
 
   particles.forEach((p,i)=>{
     p.x+=p.vx;
     p.y+=p.vy;
+    p.vy+=0.2;
     p.life--;
 
-    ctx.fillStyle="red";
-    ctx.globalAlpha=p.life/50;
-    ctx.fillRect(p.x,p.y,4,4);
+    ctx.fillStyle=p.color;
+    ctx.globalAlpha=p.life/60;
+    ctx.fillRect(p.x,p.y,5,5);
     ctx.globalAlpha=1;
 
     if(p.life<=0) particles.splice(i,1);
@@ -172,17 +150,17 @@ function animate(){
 
   if(mouse.down){
     ctx.strokeStyle="white";
-    ctx.lineWidth=4;
+    ctx.lineWidth=3;
     ctx.beginPath();
-    ctx.moveTo(mouse.x-25,mouse.y);
-    ctx.lineTo(mouse.x+25,mouse.y);
+    ctx.moveTo(mouse.px,mouse.py);
+    ctx.lineTo(mouse.x,mouse.y);
     ctx.stroke();
   }
 
-  requestAnimationFrame(animate);
+  requestAnimationFrame(update);
 }
 
-animate();
+update();
 </script>
 
 </body>
