@@ -1,41 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Perfect Timing ⚡</title>
+<title>Neon Survivor ⚡</title>
 <style>
 body {
   margin:0;
   overflow:hidden;
-  background: radial-gradient(circle, #0f2027, #000);
-  font-family: Arial;
+  background:#050505;
 }
 
 #score {
   position:fixed;
   top:20px;
   left:20px;
-  color:white;
-  font-size:28px;
-  font-weight:bold;
-}
-
-#combo {
-  position:fixed;
-  top:60px;
-  left:20px;
-  color:cyan;
-  font-size:20px;
-}
-
-#feedback {
-  position:fixed;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  font-size:40px;
-  font-weight:bold;
-  color:white;
-  opacity:0;
+  color:#0ff;
+  font-size:24px;
+  font-family:Arial;
 }
 
 canvas { display:block; }
@@ -43,115 +23,86 @@ canvas { display:block; }
 </head>
 <body>
 
-<div id="score">Score: 0</div>
-<div id="combo"></div>
-<div id="feedback"></div>
-
+<div id="score">Time: 0</div>
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let pos = 0;
-let speed = 0.015;
-let dir = 1;
+let player = {x:canvas.width/2, y:canvas.height/2};
+let target = {x:player.x, y:player.y};
 
-let score = 0;
-let combo = 0;
+let enemies = [];
+let time = 0;
 
-const hitSound = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
+// 🎯 TOUCH = MOVEMENT
+canvas.addEventListener("touchstart", move);
+canvas.addEventListener("touchmove", move);
 
-function drawBar(){
-  let centerX = canvas.width/2;
-  let width = 300;
+function move(e){
+  let t = e.touches[0];
+  target.x = t.clientX;
+  target.y = t.clientY;
+}
 
-  // track
-  ctx.fillStyle="#333";
-  ctx.fillRect(centerX-width/2, canvas.height/2, width, 10);
+// spawn enemies
+function spawnEnemy(){
+  enemies.push({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    speed:1.2 + Math.random()
+  });
+}
+setInterval(spawnEnemy, 700);
 
-  // perfect zone
-  ctx.fillStyle="lime";
-  ctx.fillRect(centerX-30, canvas.height/2, 60, 10);
-
-  // moving marker
-  let x = centerX - width/2 + pos*width;
-  ctx.fillStyle="cyan";
+// glow
+function glowCircle(x,y,r,color){
   ctx.shadowBlur=20;
-  ctx.shadowColor="cyan";
-  ctx.fillRect(x-5, canvas.height/2-10, 10, 30);
+  ctx.shadowColor=color;
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fill();
   ctx.shadowBlur=0;
-
-  return x;
-}
-
-function feedback(text,color){
-  let el = document.getElementById("feedback");
-  el.innerText=text;
-  el.style.color=color;
-  el.style.opacity=1;
-
-  setTimeout(()=>{ el.style.opacity=0; },300);
-}
-
-function tap(){
-  let center = canvas.width/2;
-  let width = 300;
-  let x = center - width/2 + pos*width;
-
-  let dist = Math.abs(x - center);
-
-  hitSound.currentTime=0;
-  hitSound.play();
-
-  if(dist < 20){
-    score += 3 + combo;
-    combo++;
-    feedback("PERFECT 🔥","lime");
-    screenFlash();
-  }
-  else if(dist < 50){
-    score += 1;
-    combo = 0;
-    feedback("GOOD","white");
-  }
-  else{
-    combo = 0;
-    feedback("MISS ❌","red");
-  }
-
-  document.getElementById("score").innerText="Score: "+score;
-  document.getElementById("combo").innerText= combo>1 ? "COMBO x"+combo : "";
-}
-
-function screenFlash(){
-  ctx.fillStyle="rgba(255,255,255,0.2)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
 function update(){
   ctx.fillStyle="rgba(0,0,0,0.3)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  pos += speed * dir;
-  if(pos > 1 || pos < 0){
-    dir *= -1;
-  }
+  // smooth follow (feels GOOD)
+  player.x += (target.x - player.x)*0.1;
+  player.y += (target.y - player.y)*0.1;
 
-  drawBar();
+  glowCircle(player.x,player.y,10,"cyan");
+
+  enemies.forEach((e)=>{
+    let dx = player.x - e.x;
+    let dy = player.y - e.y;
+    let dist = Math.hypot(dx,dy);
+
+    e.x += dx/dist * e.speed;
+    e.y += dy/dist * e.speed;
+
+    glowCircle(e.x,e.y,10,"red");
+
+    if(dist < 15){
+      alert("Game Over! Time: "+Math.floor(time));
+      location.reload();
+    }
+  });
+
+  time += 0.016;
+  document.getElementById("score").innerText = "Time: " + Math.floor(time);
 
   requestAnimationFrame(update);
 }
 
 update();
-
-// touch
-canvas.addEventListener("touchstart", tap);
-
-// mouse
-canvas.addEventListener("mousedown", tap);
 </script>
 
 </body>
