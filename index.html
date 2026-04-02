@@ -6,7 +6,7 @@
     body {
       margin:0;
       overflow:hidden;
-      background: radial-gradient(circle, #2a1a1a, #000);
+      background:#111;
     }
     #score, #combo {
       position: fixed;
@@ -49,30 +49,18 @@ let objects=[], particles=[];
 let score=0, combo=0;
 let running=false;
 
-// 🔊 sounds (MULTIPLE for variety)
-const sliceSounds = [
-  new Audio("https://www.soundjay.com/sword/sounds/sword-1.mp3"),
-  new Audio("https://www.soundjay.com/sword/sounds/sword-2.mp3")
-];
+let mouse={x:0,y:0,px:0,py:0,down:false};
 
-const boom = new Audio("https://www.soundjay.com/explosion/sounds/explosion-01.mp3");
-
+// 🎵 music
 const music = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_115b9bce3c.mp3");
 music.loop=true;
 music.volume=0.4;
 
 document.getElementById("startBtn").onclick=()=>{
   running=true;
-
-  // unlock sounds for iPad
-  sliceSounds.forEach(s=>s.play().then(()=>s.pause()).catch(()=>{}));
-  boom.play().then(()=>boom.pause()).catch(()=>{});
   music.play();
-
   document.getElementById("startBtn").style.display="none";
 };
-
-let mouse={x:0,y:0,px:0,py:0,down:false};
 
 class Obj{
   constructor(type){
@@ -96,7 +84,7 @@ class Obj{
     ctx.save();
     ctx.translate(this.x,this.y);
     ctx.rotate(this.rot);
-    ctx.font="45px serif";
+    ctx.font="50px serif";
     ctx.fillText(this.type==="fruit"?"🍉":"💣",-20,20);
     ctx.restore();
   }
@@ -118,26 +106,43 @@ function sliceCheck(o){
 }
 
 function explode(x,y,color){
-  for(let i=0;i<50;i++){
+  for(let i=0;i<60;i++){
     particles.push({
       x,y,
       vx:(Math.random()-0.5)*14,
       vy:(Math.random()-0.5)*14,
-      life:90,
+      life:100,
       color
     });
   }
 }
 
-function playSlice(){
-  let s = sliceSounds[Math.floor(Math.random()*sliceSounds.length)];
-  s.currentTime=0;
-  s.play();
+// ☕ DRAW CAFE BACKGROUND
+function drawCafe(){
+  // wall
+  let grad = ctx.createLinearGradient(0,0,0,canvas.height);
+  grad.addColorStop(0,"#6d4c41");
+  grad.addColorStop(1,"#3e2723");
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // floor
+  ctx.fillStyle="#2e1b17";
+  ctx.fillRect(0,canvas.height-150,canvas.width,150);
+
+  // tables
+  for(let i=0;i<5;i++){
+    ctx.fillStyle="#5d4037";
+    ctx.fillRect(i*250+50,canvas.height-200,120,20);
+  }
+
+  // warm light overlay
+  ctx.fillStyle="rgba(255,180,100,0.1)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
 function update(){
-  ctx.fillStyle="rgba(0,0,0,0.35)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawCafe();
 
   if(running){
     objects = objects.filter(o=>{
@@ -149,17 +154,10 @@ function update(){
           score += 1 + combo;
           combo++;
           explode(o.x,o.y,"red");
-          playSlice();
-
-          // screen shake
-          canvas.style.transform=`translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
-
         } else {
           score=Math.max(0,score-5);
           combo=0;
           explode(o.x,o.y,"black");
-          boom.currentTime=0;
-          boom.play();
         }
 
         document.getElementById("score").innerText="Score: "+score;
@@ -171,9 +169,6 @@ function update(){
     });
   }
 
-  // reset shake
-  canvas.style.transform="translate(0,0)";
-
   particles.forEach((p,i)=>{
     p.x+=p.vx;
     p.y+=p.vy;
@@ -181,7 +176,7 @@ function update(){
     p.life--;
 
     ctx.fillStyle=p.color;
-    ctx.globalAlpha=p.life/90;
+    ctx.globalAlpha=p.life/100;
     ctx.fillRect(p.x,p.y,6,6);
     ctx.globalAlpha=1;
 
@@ -206,7 +201,7 @@ function update(){
 
 update();
 
-// TOUCH (FIXED)
+// TOUCH
 canvas.addEventListener("touchstart",(e)=>{
   mouse.down=true;
   let t=e.touches[0];
