@@ -4,153 +4,165 @@
   <title>Mango Slice ⚡</title>
   <style>
     body {
-      margin: 0;
-      overflow: hidden;
-      background: linear-gradient(#d7ccc8, #8d6e63);
+      margin:0;
+      overflow:hidden;
+      background: radial-gradient(circle at center, #3e2723, #1b1b1b);
+      font-family: Arial;
     }
-    canvas { display:block; }
+
     #score {
       position: fixed;
-      top: 20px;
+      top: 15px;
       left: 20px;
-      font-size: 24px;
+      color: #fff;
+      font-size: 26px;
       font-weight: bold;
-      color: black;
     }
+
+    #startBtn {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+      padding: 15px 30px;
+      font-size: 20px;
+      background: orange;
+      border: none;
+      border-radius: 10px;
+    }
+
+    canvas { display:block; }
   </style>
 </head>
 <body>
 
 <div id="score">Score: 0</div>
+<button id="startBtn">START GAME</button>
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.width = innerWidth;
+canvas.height = innerHeight;
 
-let objects = [];
-let particles = [];
-let score = 0;
+let objects=[], particles=[];
+let score=0;
+let running=false;
 
-let mouse = {x:0,y:0,px:0,py:0,down:false};
+let mouse={x:0,y:0,px:0,py:0,down:false};
 
-class Obj {
+const music = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_115b9bce3c.mp3");
+music.loop=true;
+music.volume=0.4;
+
+document.getElementById("startBtn").onclick=()=>{
+  running=true;
+  music.play();
+  document.getElementById("startBtn").style.display="none";
+};
+
+class Obj{
   constructor(type){
-    this.x = Math.random()*canvas.width;
-    this.y = -50;
-    this.vx = (Math.random()-0.5)*3;
-    this.vy = 3 + Math.random()*2;
-    this.size = 40;
-    this.type = type;
-    this.rotation = Math.random()*Math.PI;
+    this.x=Math.random()*canvas.width;
+    this.y=-50;
+    this.vx=(Math.random()-0.5)*4;
+    this.vy=4+Math.random()*3;
+    this.size=45;
+    this.type=type;
+    this.rot=Math.random();
   }
 
   update(){
-    this.vy += 0.2;
-    this.x += this.vx;
-    this.y += this.vy;
-    this.rotation += 0.05;
-    return this.y < canvas.height + 50;
+    this.vy+=0.25;
+    this.x+=this.vx;
+    this.y+=this.vy;
+    this.rot+=0.08;
+    return this.y<canvas.height+50;
   }
 
   draw(){
     ctx.save();
     ctx.translate(this.x,this.y);
-    ctx.rotate(this.rotation);
-    ctx.font = this.size + "px serif";
-
-    if(this.type==="fruit"){
-      ctx.fillText("🍉",-20,20);
-    } else {
-      ctx.fillText("💣",-20,20);
-    }
-
+    ctx.rotate(this.rot);
+    ctx.font=this.size+"px serif";
+    ctx.fillText(this.type==="fruit"?"🍉":"💣",-20,20);
     ctx.restore();
   }
 }
 
 function spawn(){
-  let type = Math.random()<0.8 ? "fruit" : "bomb";
+  let type=Math.random()<0.85?"fruit":"bomb";
   objects.push(new Obj(type));
 }
-setInterval(spawn, 800);
+setInterval(spawn,700);
 
-canvas.addEventListener("mousedown",()=>mouse.down=true);
-canvas.addEventListener("mouseup",()=>mouse.down=false);
-canvas.addEventListener("mousemove",(e)=>{
-  mouse.px = mouse.x;
-  mouse.py = mouse.y;
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-});
-
-function lineHitsCircle(x1,y1,x2,y2,cx,cy,r){
-  let dx = x2-x1;
-  let dy = y2-y1;
-  let t = ((cx-x1)*dx + (cy-y1)*dy)/(dx*dx+dy*dy);
-  t = Math.max(0,Math.min(1,t));
-  let lx = x1 + t*dx;
-  let ly = y1 + t*dy;
-  let dist = Math.hypot(lx-cx, ly-cy);
-  return dist < r;
+function sliceCheck(o){
+  let dx=mouse.x-mouse.px;
+  let dy=mouse.y-mouse.py;
+  let t=((o.x-mouse.px)*dx+(o.y-mouse.py)*dy)/(dx*dx+dy*dy);
+  t=Math.max(0,Math.min(1,t));
+  let lx=mouse.px+t*dx;
+  let ly=mouse.py+t*dy;
+  return Math.hypot(o.x-lx,o.y-ly)<35;
 }
 
 function explode(x,y,color){
-  for(let i=0;i<20;i++){
+  for(let i=0;i<30;i++){
     particles.push({
       x,y,
-      vx:(Math.random()-0.5)*8,
-      vy:(Math.random()-0.5)*8,
-      life:60,
+      vx:(Math.random()-0.5)*10,
+      vy:(Math.random()-0.5)*10,
+      life:80,
       color
     });
   }
 }
 
 function update(){
-  ctx.fillStyle="rgba(255,255,255,0.15)";
+  ctx.fillStyle="rgba(0,0,0,0.25)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  objects = objects.filter(o=>{
-    o.update();
-    o.draw();
+  if(running){
+    objects = objects.filter(o=>{
+      o.update();
+      o.draw();
 
-    if(mouse.down && lineHitsCircle(mouse.px,mouse.py,mouse.x,mouse.y,o.x,o.y,30)){
-      
-      if(o.type==="fruit"){
-        score++;
-        explode(o.x,o.y,"red");
-      } else {
-        score = Math.max(0, score-2);
-        explode(o.x,o.y,"black");
+      if(mouse.down && sliceCheck(o)){
+        if(o.type==="fruit"){
+          score++;
+          explode(o.x,o.y,"red");
+        } else {
+          score=Math.max(0,score-3);
+          explode(o.x,o.y,"black");
+        }
+
+        document.getElementById("score").innerText="Score: "+score;
+        return false;
       }
 
-      document.getElementById("score").innerText="Score: "+score;
-      return false;
-    }
-
-    return o.y < canvas.height;
-  });
+      return true;
+    });
+  }
 
   particles.forEach((p,i)=>{
     p.x+=p.vx;
     p.y+=p.vy;
-    p.vy+=0.2;
+    p.vy+=0.3;
     p.life--;
 
     ctx.fillStyle=p.color;
-    ctx.globalAlpha=p.life/60;
-    ctx.fillRect(p.x,p.y,5,5);
+    ctx.globalAlpha=p.life/80;
+    ctx.fillRect(p.x,p.y,6,6);
     ctx.globalAlpha=1;
 
     if(p.life<=0) particles.splice(i,1);
   });
 
+  // katana trail
   if(mouse.down){
-    ctx.strokeStyle="white";
-    ctx.lineWidth=3;
+    ctx.strokeStyle="cyan";
+    ctx.lineWidth=4;
     ctx.beginPath();
     ctx.moveTo(mouse.px,mouse.py);
     ctx.lineTo(mouse.x,mouse.y);
@@ -161,6 +173,34 @@ function update(){
 }
 
 update();
+
+// TOUCH (iPad FIX)
+canvas.addEventListener("touchstart",(e)=>{
+  mouse.down=true;
+  let t=e.touches[0];
+  mouse.x=mouse.px=t.clientX;
+  mouse.y=mouse.py=t.clientY;
+});
+
+canvas.addEventListener("touchmove",(e)=>{
+  let t=e.touches[0];
+  mouse.px=mouse.x;
+  mouse.py=mouse.y;
+  mouse.x=t.clientX;
+  mouse.y=t.clientY;
+});
+
+canvas.addEventListener("touchend",()=>mouse.down=false);
+
+// mouse fallback
+canvas.addEventListener("mousedown",()=>mouse.down=true);
+canvas.addEventListener("mouseup",()=>mouse.down=false);
+canvas.addEventListener("mousemove",(e)=>{
+  mouse.px=mouse.x;
+  mouse.py=mouse.y;
+  mouse.x=e.clientX;
+  mouse.y=e.clientY;
+});
 </script>
 
 </body>
