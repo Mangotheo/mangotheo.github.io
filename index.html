@@ -1,19 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Mango Slice ⚡</title>
+<title>Perfect Timing ⚡</title>
 <style>
-body { margin:0; overflow:hidden; background:#2e1b17; }
-#score {
-  position:fixed; top:15px; left:20px;
-  color:white; font-size:26px; font-weight:bold;
+body {
+  margin:0;
+  overflow:hidden;
+  background: radial-gradient(circle, #0f2027, #000);
+  font-family: Arial;
 }
+
+#score {
+  position:fixed;
+  top:20px;
+  left:20px;
+  color:white;
+  font-size:28px;
+  font-weight:bold;
+}
+
+#combo {
+  position:fixed;
+  top:60px;
+  left:20px;
+  color:cyan;
+  font-size:20px;
+}
+
+#feedback {
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:40px;
+  font-weight:bold;
+  color:white;
+  opacity:0;
+}
+
 canvas { display:block; }
 </style>
 </head>
 <body>
 
 <div id="score">Score: 0</div>
+<div id="combo"></div>
+<div id="feedback"></div>
+
 <canvas id="game"></canvas>
 
 <script>
@@ -22,134 +55,92 @@ const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let objects=[], particles=[];
-let score=0;
+let pos = 0;
+let speed = 0.015;
+let dir = 1;
 
-// 🔊 sound fix
-let sliceSound = new Audio("https://www.soundjay.com/sword/sounds/sword-1.mp3");
+let score = 0;
+let combo = 0;
 
-// unlock sound on first tap
-document.body.addEventListener("touchstart", ()=>{
-  sliceSound.play().then(()=>sliceSound.pause());
-}, {once:true});
+const hitSound = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
 
-// 🎨 background
-function drawBG(){
-  let g = ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,"#6d4c41");
-  g.addColorStop(1,"#2e1b17");
-  ctx.fillStyle=g;
+function drawBar(){
+  let centerX = canvas.width/2;
+  let width = 300;
+
+  // track
+  ctx.fillStyle="#333";
+  ctx.fillRect(centerX-width/2, canvas.height/2, width, 10);
+
+  // perfect zone
+  ctx.fillStyle="lime";
+  ctx.fillRect(centerX-30, canvas.height/2, 60, 10);
+
+  // moving marker
+  let x = centerX - width/2 + pos*width;
+  ctx.fillStyle="cyan";
+  ctx.shadowBlur=20;
+  ctx.shadowColor="cyan";
+  ctx.fillRect(x-5, canvas.height/2-10, 10, 30);
+  ctx.shadowBlur=0;
+
+  return x;
+}
+
+function feedback(text,color){
+  let el = document.getElementById("feedback");
+  el.innerText=text;
+  el.style.color=color;
+  el.style.opacity=1;
+
+  setTimeout(()=>{ el.style.opacity=0; },300);
+}
+
+function tap(){
+  let center = canvas.width/2;
+  let width = 300;
+  let x = center - width/2 + pos*width;
+
+  let dist = Math.abs(x - center);
+
+  hitSound.currentTime=0;
+  hitSound.play();
+
+  if(dist < 20){
+    score += 3 + combo;
+    combo++;
+    feedback("PERFECT 🔥","lime");
+    screenFlash();
+  }
+  else if(dist < 50){
+    score += 1;
+    combo = 0;
+    feedback("GOOD","white");
+  }
+  else{
+    combo = 0;
+    feedback("MISS ❌","red");
+  }
+
+  document.getElementById("score").innerText="Score: "+score;
+  document.getElementById("combo").innerText= combo>1 ? "COMBO x"+combo : "";
+}
+
+function screenFlash(){
+  ctx.fillStyle="rgba(255,255,255,0.2)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
-// 🍉 objects
-class Obj{
-  constructor(type){
-    this.x=Math.random()*canvas.width;
-    this.y=-50;
-    this.vx=(Math.random()-0.5)*4;
-    this.vy=5;
-    this.type=type;
-    this.rot=Math.random();
-  }
-
-  update(){
-    this.vy+=0.3;
-    this.x+=this.vx;
-    this.y+=this.vy;
-    this.rot+=0.1;
-    return this.y<canvas.height+50;
-  }
-
-  draw(){
-    ctx.save();
-    ctx.translate(this.x,this.y);
-    ctx.rotate(this.rot);
-    ctx.font="50px serif";
-    ctx.fillText(this.type==="fruit"?"🍉":"💣",-20,20);
-    ctx.restore();
-  }
-}
-
-// spawn FAST (no boring)
-setInterval(()=>{
-  objects.push(new Obj(Math.random()<0.85?"fruit":"bomb"));
-},400);
-
-// swipe
-let mouse={x:0,y:0,px:0,py:0,down:false};
-
-function hit(o){
-  let dx=mouse.x-mouse.px;
-  let dy=mouse.y-mouse.py;
-  let t=((o.x-mouse.px)*dx+(o.y-mouse.py)*dy)/(dx*dx+dy*dy);
-  t=Math.max(0,Math.min(1,t));
-  let lx=mouse.px+t*dx;
-  let ly=mouse.py+t*dy;
-  return Math.hypot(o.x-lx,o.y-ly)<35;
-}
-
-// explosion
-function explode(x,y,color){
-  for(let i=0;i<40;i++){
-    particles.push({
-      x,y,
-      vx:(Math.random()-0.5)*10,
-      vy:(Math.random()-0.5)*10,
-      life:80,
-      color
-    });
-  }
-}
-
 function update(){
-  drawBG();
+  ctx.fillStyle="rgba(0,0,0,0.3)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  objects = objects.filter(o=>{
-    o.update();
-    o.draw();
-
-    if(mouse.down && hit(o)){
-      if(o.type==="fruit"){
-        score++;
-        explode(o.x,o.y,"red");
-        sliceSound.currentTime=0;
-        sliceSound.play();
-      } else {
-        score=Math.max(0,score-3);
-        explode(o.x,o.y,"black");
-      }
-
-      document.getElementById("score").innerText="Score: "+score;
-      return false;
-    }
-
-    return true;
-  });
-
-  particles.forEach((p,i)=>{
-    p.x+=p.vx;
-    p.y+=p.vy;
-    p.vy+=0.3;
-    p.life--;
-
-    ctx.fillStyle=p.color;
-    ctx.globalAlpha=p.life/80;
-    ctx.fillRect(p.x,p.y,5,5);
-    ctx.globalAlpha=1;
-
-    if(p.life<=0) particles.splice(i,1);
-  });
-
-  // katana
-  if(mouse.down){
-    ctx.strokeStyle="cyan";
-    ctx.lineWidth=4;
-    ctx.beginPath();
-    ctx.moveTo(mouse.px,mouse.py);
-    ctx.lineTo(mouse.x,mouse.y);
-    ctx.stroke();
+  pos += speed * dir;
+  if(pos > 1 || pos < 0){
+    dir *= -1;
   }
+
+  drawBar();
 
   requestAnimationFrame(update);
 }
@@ -157,32 +148,10 @@ function update(){
 update();
 
 // touch
-canvas.addEventListener("touchstart",(e)=>{
-  mouse.down=true;
-  let t=e.touches[0];
-  mouse.x=mouse.px=t.clientX;
-  mouse.y=mouse.py=t.clientY;
-});
-
-canvas.addEventListener("touchmove",(e)=>{
-  let t=e.touches[0];
-  mouse.px=mouse.x;
-  mouse.py=mouse.y;
-  mouse.x=t.clientX;
-  mouse.y=t.clientY;
-});
-
-canvas.addEventListener("touchend",()=>mouse.down=false);
+canvas.addEventListener("touchstart", tap);
 
 // mouse
-canvas.addEventListener("mousedown",()=>mouse.down=true);
-canvas.addEventListener("mouseup",()=>mouse.down=false);
-canvas.addEventListener("mousemove",(e)=>{
-  mouse.px=mouse.x;
-  mouse.py=mouse.y;
-  mouse.x=e.clientX;
-  mouse.y=e.clientY;
-});
+canvas.addEventListener("mousedown", tap);
 </script>
 
 </body>
