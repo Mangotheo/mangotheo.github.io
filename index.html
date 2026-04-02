@@ -1,21 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Neon Survivor ⚡</title>
+<title>Luna Life RP ⚡</title>
 <style>
-body {
-  margin:0;
-  overflow:hidden;
-  background:#050505;
+body { margin:0; overflow:hidden; font-family:Arial; background:#000; }
+
+#ui {
+  position:fixed;
+  top:10px;
+  left:10px;
+  color:white;
+  font-size:18px;
 }
 
-#score {
+#msg {
   position:fixed;
-  top:20px;
-  left:20px;
-  color:#0ff;
-  font-size:24px;
-  font-family:Arial;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.8);
+  padding:12px 20px;
+  border-radius:12px;
+  color:white;
+  opacity:0;
+  transition:0.3s;
+}
+
+#inventory {
+  position:fixed;
+  right:10px;
+  top:10px;
+  color:white;
 }
 
 canvas { display:block; }
@@ -23,7 +38,14 @@ canvas { display:block; }
 </head>
 <body>
 
-<div id="score">Time: 0</div>
+<div id="ui">
+💰 $<span id="money">100</span><br>
+🎯 <span id="mission">Talk to NPC</span>
+</div>
+
+<div id="inventory">🎒 None</div>
+<div id="msg"></div>
+
 <canvas id="game"></canvas>
 
 <script>
@@ -33,76 +55,188 @@ const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let player = {x:canvas.width/2, y:canvas.height/2};
-let target = {x:player.x, y:player.y};
+let scene = "city";
+let money = 100;
+let inventory = [];
+let placedItems = [];
 
-let enemies = [];
-let time = 0;
+let missionStep = 0;
+let missionLoop = 0;
 
-// 🎯 TOUCH = MOVEMENT
-canvas.addEventListener("touchstart", move);
-canvas.addEventListener("touchmove", move);
+let player = {x:300,y:300};
+let target = {x:300,y:300};
+let camera = {x:0,y:0};
+
+let npc = {x:600,y:500};
+
+function showMsg(t){
+  let m=document.getElementById("msg");
+  m.innerText=t;
+  m.style.opacity=1;
+  setTimeout(()=>m.style.opacity=0,1500);
+}
+
+function updateUI(){
+  document.getElementById("money").innerText=money;
+  document.getElementById("inventory").innerText="🎒 "+(inventory.join(", ")||"None");
+
+  const missions = [
+    "Talk to NPC",
+    "Go to Mall",
+    "Buy Item",
+    "Go Home",
+    "Place Item"
+  ];
+
+  document.getElementById("mission").innerText = missions[missionStep] || "Free Play 🎉";
+}
+
+// movement
+canvas.addEventListener("touchstart",move);
+canvas.addEventListener("touchmove",move);
 
 function move(e){
-  let t = e.touches[0];
-  target.x = t.clientX;
-  target.y = t.clientY;
+  let t=e.touches[0];
+  target.x = t.clientX + camera.x;
+  target.y = t.clientY + camera.y;
 }
 
-// spawn enemies
-function spawnEnemy(){
-  enemies.push({
-    x:Math.random()*canvas.width,
-    y:Math.random()*canvas.height,
-    speed:1.2 + Math.random()
-  });
+function updatePlayer(){
+  player.x += (target.x-player.x)*0.1;
+  player.y += (target.y-player.y)*0.1;
 }
-setInterval(spawnEnemy, 700);
 
-// glow
-function glowCircle(x,y,r,color){
-  ctx.shadowBlur=20;
-  ctx.shadowColor=color;
-  ctx.fillStyle=color;
+function updateCamera(){
+  camera.x = player.x - canvas.width/2;
+  camera.y = player.y - canvas.height/2;
+}
+
+// city
+function drawCity(){
+  ctx.fillStyle="#4caf50";
+  ctx.fillRect(0,0,2000,2000);
+
+  ctx.fillStyle="#ffcc00";
+  ctx.fillRect(1300,700,300,200);
+  ctx.fillStyle="black";
+  ctx.fillText("MALL",1350,800);
+
+  ctx.fillStyle="#2196f3";
+  ctx.fillRect(200,1200,250,200);
+  ctx.fillStyle="white";
+  ctx.fillText("HOME",250,1300);
+
+  ctx.fillStyle="red";
   ctx.beginPath();
-  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.arc(npc.x,npc.y,15,0,Math.PI*2);
   ctx.fill();
-  ctx.shadowBlur=0;
 }
 
-function update(){
-  ctx.fillStyle="rgba(0,0,0,0.3)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+// room
+function drawRoom(){
+  ctx.fillStyle="#2e2e2e";
+  ctx.fillRect(0,0,1000,800);
 
-  // smooth follow (feels GOOD)
-  player.x += (target.x - player.x)*0.1;
-  player.y += (target.y - player.y)*0.1;
+  ctx.fillStyle="#444";
+  ctx.fillRect(0,700,1000,100);
 
-  glowCircle(player.x,player.y,10,"cyan");
-
-  enemies.forEach((e)=>{
-    let dx = player.x - e.x;
-    let dy = player.y - e.y;
-    let dist = Math.hypot(dx,dy);
-
-    e.x += dx/dist * e.speed;
-    e.y += dy/dist * e.speed;
-
-    glowCircle(e.x,e.y,10,"red");
-
-    if(dist < 15){
-      alert("Game Over! Time: "+Math.floor(time));
-      location.reload();
-    }
+  placedItems.forEach(i=>{
+    ctx.fillStyle="yellow";
+    ctx.fillRect(i.x,i.y,40,40);
   });
 
-  time += 0.016;
-  document.getElementById("score").innerText = "Time: " + Math.floor(time);
+  ctx.fillStyle="white";
+  ctx.fillText("Room 🏠",20,40);
+}
+
+// player
+function drawPlayer(){
+  ctx.fillStyle="cyan";
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,15,0,Math.PI*2);
+  ctx.fill();
+}
+
+// interaction
+canvas.addEventListener("touchend",(e)=>{
+
+  if(scene==="city"){
+
+    let d = Math.hypot(player.x-npc.x, player.y-npc.y);
+
+    if(d<80 && missionStep===0){
+      missionStep=1;
+      showMsg("Go to Mall 🛍️");
+    }
+
+    if(player.x>1300 && player.x<1600 && player.y>700 && player.y<900){
+
+      if(missionStep===1){
+        missionStep=2;
+        showMsg("Buy Item 💡");
+      }
+      else if(missionStep===2 && money>=50){
+        money-=50;
+        inventory.push("Lamp");
+        missionStep=3;
+        showMsg("Go Home 🏠");
+      }
+    }
+
+    if(player.x>200 && player.x<450 && player.y>1200 && player.y<1400){
+      scene="room";
+      player.x=300;
+      player.y=300;
+
+      if(missionStep===3){
+        missionStep=4;
+        showMsg("Place Item 🪑");
+      }
+    }
+  }
+
+  else if(scene==="room"){
+    if(missionStep===4 && inventory.length>0){
+      let t=e.changedTouches[0];
+      placedItems.push({x:t.clientX,y:t.clientY});
+      inventory.pop();
+
+      missionStep=0;
+      missionLoop++;
+      money += 100 + missionLoop*50;
+
+      showMsg("Mission Complete! +" + (100+missionLoop*50) + " 💰");
+    }
+  }
+
+  updateUI();
+});
+
+// loop
+function update(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(scene==="city"){
+    updatePlayer();
+    updateCamera();
+
+    ctx.save();
+    ctx.translate(-camera.x,-camera.y);
+
+    drawCity();
+    drawPlayer();
+
+    ctx.restore();
+  }
+  else{
+    drawRoom();
+  }
 
   requestAnimationFrame(update);
 }
 
 update();
+updateUI();
 </script>
 
 </body>
