@@ -3,9 +3,10 @@
 <head>
 <title>Luna Life RP ⚡</title>
 <style>
-body { margin:0; overflow:hidden; font-family:Arial; background:#000; }
+body { margin:0; overflow:hidden; font-family:Arial; background:#111; }
 
-#ui {
+/* UI */
+#topUI {
   position:fixed;
   top:10px;
   left:10px;
@@ -13,24 +14,56 @@ body { margin:0; overflow:hidden; font-family:Arial; background:#000; }
   font-size:18px;
 }
 
-#msg {
+#dialogue {
   position:fixed;
   bottom:20px;
   left:50%;
   transform:translateX(-50%);
   background:rgba(0,0,0,0.8);
-  padding:12px 20px;
-  border-radius:12px;
+  padding:15px;
+  border-radius:10px;
   color:white;
-  opacity:0;
-  transition:0.3s;
+  display:none;
 }
 
-#inventory {
+#shop {
   position:fixed;
-  right:10px;
-  top:10px;
+  bottom:100px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#222;
+  padding:10px;
+  border-radius:10px;
+  display:none;
+}
+
+.btn {
+  background:#444;
+  padding:10px;
+  margin:5px;
   color:white;
+  border-radius:8px;
+}
+
+/* joystick */
+#joy {
+  position:fixed;
+  bottom:30px;
+  left:30px;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.1);
+}
+
+#stick {
+  width:50px;
+  height:50px;
+  background:rgba(255,255,255,0.5);
+  border-radius:50%;
+  position:absolute;
+  left:35px;
+  top:35px;
 }
 
 canvas { display:block; }
@@ -38,204 +71,185 @@ canvas { display:block; }
 </head>
 <body>
 
-<div id="ui">
+<div id="topUI">
 💰 $<span id="money">100</span><br>
 🎯 <span id="mission">Talk to NPC</span>
 </div>
 
-<div id="inventory">🎒 None</div>
-<div id="msg"></div>
+<div id="dialogue"></div>
+
+<div id="shop">
+  <div class="btn" onclick="buy('Lamp',50)">💡 Lamp - $50</div>
+  <div class="btn" onclick="closeShop()">Close</div>
+</div>
+
+<div id="joy"><div id="stick"></div></div>
 
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let scene = "city";
-let money = 100;
-let inventory = [];
-let placedItems = [];
+/* GAME STATE */
+let money=100;
+let inventory=[];
+let scene="city";
+let mission=0;
 
-let missionStep = 0;
-let missionLoop = 0;
+let player={x:300,y:300,vx:0,vy:0};
+let camera={x:0,y:0};
 
-let player = {x:300,y:300};
-let target = {x:300,y:300};
-let camera = {x:0,y:0};
+let npc={x:700,y:500};
 
-let npc = {x:600,y:500};
+let home={x:200,y:1200,w:250,h:200};
+let mall={x:1300,y:700,w:300,h:200};
 
-function showMsg(t){
-  let m=document.getElementById("msg");
-  m.innerText=t;
-  m.style.opacity=1;
-  setTimeout(()=>m.style.opacity=0,1500);
+/* JOYSTICK */
+let joy=document.getElementById("joy");
+let stick=document.getElementById("stick");
+let dragging=false;
+
+joy.addEventListener("touchstart",()=>dragging=true);
+joy.addEventListener("touchend",()=>{dragging=false;player.vx=0;player.vy=0;stick.style.left="35px";stick.style.top="35px";});
+joy.addEventListener("touchmove",(e)=>{
+  if(!dragging)return;
+  let t=e.touches[0];
+  let rect=joy.getBoundingClientRect();
+  let x=t.clientX-rect.left-60;
+  let y=t.clientY-rect.top-60;
+
+  let dist=Math.hypot(x,y);
+  if(dist>40){x*=40/dist;y*=40/dist;}
+
+  stick.style.left=(x+35)+"px";
+  stick.style.top=(y+35)+"px";
+
+  player.vx=x/10;
+  player.vy=y/10;
+});
+
+/* UI */
+function showDialogue(text){
+  let d=document.getElementById("dialogue");
+  d.innerText=text;
+  d.style.display="block";
+  setTimeout(()=>d.style.display="none",2000);
 }
 
 function updateUI(){
   document.getElementById("money").innerText=money;
-  document.getElementById("inventory").innerText="🎒 "+(inventory.join(", ")||"None");
-
-  const missions = [
-    "Talk to NPC",
-    "Go to Mall",
-    "Buy Item",
-    "Go Home",
-    "Place Item"
-  ];
-
-  document.getElementById("mission").innerText = missions[missionStep] || "Free Play 🎉";
+  const missions=["Talk to NPC","Go Mall","Buy Item","Go Home","Place Item"];
+  document.getElementById("mission").innerText=missions[mission]||"Free Play";
 }
 
-// movement
-canvas.addEventListener("touchstart",move);
-canvas.addEventListener("touchmove",move);
-
-function move(e){
-  let t=e.touches[0];
-  target.x = t.clientX + camera.x;
-  target.y = t.clientY + camera.y;
+/* SHOP */
+function buy(name,price){
+  if(money>=price){
+    money-=price;
+    inventory.push(name);
+    mission=3;
+    showDialogue("Bought "+name);
+    closeShop();
+  }
+  updateUI();
 }
 
-function updatePlayer(){
-  player.x += (target.x-player.x)*0.1;
-  player.y += (target.y-player.y)*0.1;
+function closeShop(){
+  document.getElementById("shop").style.display="none";
 }
 
-function updateCamera(){
-  camera.x = player.x - canvas.width/2;
-  camera.y = player.y - canvas.height/2;
-}
+/* GAME LOOP */
+function update(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// city
-function drawCity(){
+  player.x+=player.vx;
+  player.y+=player.vy;
+
+  camera.x=player.x-canvas.width/2;
+  camera.y=player.y-canvas.height/2;
+
+  ctx.save();
+  ctx.translate(-camera.x,-camera.y);
+
+  // ground
   ctx.fillStyle="#4caf50";
   ctx.fillRect(0,0,2000,2000);
 
+  // mall
   ctx.fillStyle="#ffcc00";
-  ctx.fillRect(1300,700,300,200);
+  ctx.fillRect(mall.x,mall.y,mall.w,mall.h);
   ctx.fillStyle="black";
-  ctx.fillText("MALL",1350,800);
+  ctx.fillText("MALL",mall.x+80,mall.y+100);
 
+  // home
   ctx.fillStyle="#2196f3";
-  ctx.fillRect(200,1200,250,200);
+  ctx.fillRect(home.x,home.y,home.w,home.h);
   ctx.fillStyle="white";
-  ctx.fillText("HOME",250,1300);
+  ctx.fillText("HOME",home.x+70,home.y+100);
 
+  // npc
   ctx.fillStyle="red";
   ctx.beginPath();
   ctx.arc(npc.x,npc.y,15,0,Math.PI*2);
   ctx.fill();
-}
 
-// room
-function drawRoom(){
-  ctx.fillStyle="#2e2e2e";
-  ctx.fillRect(0,0,1000,800);
-
-  ctx.fillStyle="#444";
-  ctx.fillRect(0,700,1000,100);
-
-  placedItems.forEach(i=>{
-    ctx.fillStyle="yellow";
-    ctx.fillRect(i.x,i.y,40,40);
-  });
-
-  ctx.fillStyle="white";
-  ctx.fillText("Room 🏠",20,40);
-}
-
-// player
-function drawPlayer(){
+  // player
   ctx.fillStyle="cyan";
   ctx.beginPath();
   ctx.arc(player.x,player.y,15,0,Math.PI*2);
   ctx.fill();
+
+  // arrow guide
+  let target= npc;
+  if(mission>=1) target=mall;
+  if(mission>=3) target=home;
+
+  let dx=target.x-player.x;
+  let dy=target.y-player.y;
+  let angle=Math.atan2(dy,dx);
+
+  ctx.save();
+  ctx.translate(player.x,player.y);
+  ctx.rotate(angle);
+  ctx.fillStyle="white";
+  ctx.fillRect(20,-5,20,10);
+  ctx.restore();
+
+  ctx.restore();
+
+  requestAnimationFrame(update);
 }
+update();
 
-// interaction
-canvas.addEventListener("touchend",(e)=>{
+/* INTERACTION */
+canvas.addEventListener("touchend",()=>{
+  let d=Math.hypot(player.x-npc.x,player.y-npc.y);
 
-  if(scene==="city"){
+  if(d<80 && mission===0){
+    mission=1;
+    showDialogue("Go to Mall 🛍️");
+  }
 
-    let d = Math.hypot(player.x-npc.x, player.y-npc.y);
-
-    if(d<80 && missionStep===0){
-      missionStep=1;
-      showMsg("Go to Mall 🛍️");
-    }
-
-    if(player.x>1300 && player.x<1600 && player.y>700 && player.y<900){
-
-      if(missionStep===1){
-        missionStep=2;
-        showMsg("Buy Item 💡");
-      }
-      else if(missionStep===2 && money>=50){
-        money-=50;
-        inventory.push("Lamp");
-        missionStep=3;
-        showMsg("Go Home 🏠");
-      }
-    }
-
-    if(player.x>200 && player.x<450 && player.y>1200 && player.y<1400){
-      scene="room";
-      player.x=300;
-      player.y=300;
-
-      if(missionStep===3){
-        missionStep=4;
-        showMsg("Place Item 🪑");
-      }
+  if(player.x>mall.x && player.x<mall.x+mall.w && player.y>mall.y && player.y<mall.y+mall.h){
+    if(mission===1){
+      mission=2;
+      document.getElementById("shop").style.display="block";
     }
   }
 
-  else if(scene==="room"){
-    if(missionStep===4 && inventory.length>0){
-      let t=e.changedTouches[0];
-      placedItems.push({x:t.clientX,y:t.clientY});
-      inventory.pop();
-
-      missionStep=0;
-      missionLoop++;
-      money += 100 + missionLoop*50;
-
-      showMsg("Mission Complete! +" + (100+missionLoop*50) + " 💰");
+  if(player.x>home.x && player.x<home.x+home.w && player.y>home.y && player.y<home.y+home.h){
+    if(mission===3){
+      mission=4;
+      showDialogue("Placed Item 🪑");
+      money+=100;
     }
   }
 
   updateUI();
 });
-
-// loop
-function update(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  if(scene==="city"){
-    updatePlayer();
-    updateCamera();
-
-    ctx.save();
-    ctx.translate(-camera.x,-camera.y);
-
-    drawCity();
-    drawPlayer();
-
-    ctx.restore();
-  }
-  else{
-    drawRoom();
-  }
-
-  requestAnimationFrame(update);
-}
-
-update();
 updateUI();
 </script>
 
