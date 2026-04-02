@@ -3,24 +3,21 @@
 <head>
   <title>Mango Slice ⚡</title>
   <style>
-    body {
-      margin:0;
-      overflow:hidden;
-      background:#111;
-    }
+    body { margin:0; overflow:hidden; background:#000; }
+
     #score, #combo {
       position: fixed;
       left: 20px;
-      color: white;
       font-weight: bold;
+      color: white;
     }
+
     #score { top: 15px; font-size: 26px; }
-    #combo { top: 50px; font-size: 20px; color: cyan; }
+    #combo { top: 50px; font-size: 22px; color: cyan; }
 
     #startBtn {
       position: fixed;
-      top:50%;
-      left:50%;
+      top:50%; left:50%;
       transform:translate(-50%,-50%);
       padding:15px 30px;
       font-size:20px;
@@ -45,22 +42,37 @@ const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let objects=[], particles=[];
+let objects=[], particles=[], bgParticles=[];
 let score=0, combo=0;
 let running=false;
 
-let mouse={x:0,y:0,px:0,py:0,down:false};
-
-// 🎵 music
+// 🎧 SOUND FIX
+const sliceSound = new Audio("https://www.soundjay.com/sword/sounds/sword-1.mp3");
+const boom = new Audio("https://www.soundjay.com/explosion/sounds/explosion-01.mp3");
 const music = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_115b9bce3c.mp3");
 music.loop=true;
 music.volume=0.4;
 
 document.getElementById("startBtn").onclick=()=>{
   running=true;
+
+  // unlock audio
+  sliceSound.play().then(()=>sliceSound.pause());
+  boom.play().then(()=>boom.pause());
   music.play();
+
   document.getElementById("startBtn").style.display="none";
 };
+
+// 🌟 BACKGROUND PARTICLES
+for(let i=0;i<80;i++){
+  bgParticles.push({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    size:Math.random()*3,
+    speed:Math.random()*0.5
+  });
+}
 
 class Obj{
   constructor(type){
@@ -82,10 +94,18 @@ class Obj{
 
   draw(){
     ctx.save();
+
+    // glow under fruit
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,40,0,Math.PI*2);
+    ctx.fillStyle="rgba(255,255,255,0.05)";
+    ctx.fill();
+
     ctx.translate(this.x,this.y);
     ctx.rotate(this.rot);
     ctx.font="50px serif";
     ctx.fillText(this.type==="fruit"?"🍉":"💣",-20,20);
+
     ctx.restore();
   }
 }
@@ -93,7 +113,10 @@ class Obj{
 function spawn(){
   objects.push(new Obj(Math.random()<0.85?"fruit":"bomb"));
 }
-setInterval(spawn,500);
+setInterval(spawn,450);
+
+// 🎯 slice detection
+let mouse={x:0,y:0,px:0,py:0,down:false};
 
 function sliceCheck(o){
   let dx=mouse.x-mouse.px;
@@ -105,44 +128,40 @@ function sliceCheck(o){
   return Math.hypot(o.x-lx,o.y-ly)<35;
 }
 
+// 💥 explosion
 function explode(x,y,color){
-  for(let i=0;i<60;i++){
+  for(let i=0;i<70;i++){
     particles.push({
       x,y,
-      vx:(Math.random()-0.5)*14,
-      vy:(Math.random()-0.5)*14,
+      vx:(Math.random()-0.5)*16,
+      vy:(Math.random()-0.5)*16,
       life:100,
       color
     });
   }
 }
 
-// ☕ DRAW CAFE BACKGROUND
-function drawCafe(){
-  // wall
+// 🎨 draw background
+function drawBackground(){
   let grad = ctx.createLinearGradient(0,0,0,canvas.height);
-  grad.addColorStop(0,"#6d4c41");
-  grad.addColorStop(1,"#3e2723");
+  grad.addColorStop(0,"#5d4037");
+  grad.addColorStop(1,"#2e1b17");
   ctx.fillStyle=grad;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // floor
-  ctx.fillStyle="#2e1b17";
-  ctx.fillRect(0,canvas.height-150,canvas.width,150);
+  // floating particles
+  bgParticles.forEach(p=>{
+    p.y += p.speed;
+    if(p.y > canvas.height) p.y = 0;
 
-  // tables
-  for(let i=0;i<5;i++){
-    ctx.fillStyle="#5d4037";
-    ctx.fillRect(i*250+50,canvas.height-200,120,20);
-  }
-
-  // warm light overlay
-  ctx.fillStyle="rgba(255,180,100,0.1)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="rgba(255,255,255,0.1)";
+    ctx.fillRect(p.x,p.y,p.size,p.size);
+  });
 }
 
+// 🎮 GAME LOOP
 function update(){
-  drawCafe();
+  drawBackground();
 
   if(running){
     objects = objects.filter(o=>{
@@ -153,15 +172,28 @@ function update(){
         if(o.type==="fruit"){
           score += 1 + combo;
           combo++;
+
           explode(o.x,o.y,"red");
+
+          sliceSound.currentTime=0;
+          sliceSound.play();
+
+          // screen shake
+          canvas.style.transform=`translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
+
         } else {
           score=Math.max(0,score-5);
           combo=0;
+
           explode(o.x,o.y,"black");
+
+          boom.currentTime=0;
+          boom.play();
         }
 
         document.getElementById("score").innerText="Score: "+score;
         document.getElementById("combo").innerText= combo>1 ? "COMBO x"+combo : "";
+
         return false;
       }
 
@@ -169,6 +201,9 @@ function update(){
     });
   }
 
+  canvas.style.transform="translate(0,0)";
+
+  // particles
   particles.forEach((p,i)=>{
     p.x+=p.vx;
     p.y+=p.vy;
@@ -183,10 +218,10 @@ function update(){
     if(p.life<=0) particles.splice(i,1);
   });
 
-  // glowing katana
+  // katana glow
   if(mouse.down){
     ctx.strokeStyle="cyan";
-    ctx.shadowBlur=20;
+    ctx.shadowBlur=25;
     ctx.shadowColor="cyan";
     ctx.lineWidth=5;
     ctx.beginPath();
@@ -201,7 +236,7 @@ function update(){
 
 update();
 
-// TOUCH
+// 📱 TOUCH
 canvas.addEventListener("touchstart",(e)=>{
   mouse.down=true;
   let t=e.touches[0];
@@ -219,7 +254,7 @@ canvas.addEventListener("touchmove",(e)=>{
 
 canvas.addEventListener("touchend",()=>mouse.down=false);
 
-// mouse fallback
+// 🖱 fallback
 canvas.addEventListener("mousedown",()=>mouse.down=true);
 canvas.addEventListener("mouseup",()=>mouse.down=false);
 canvas.addEventListener("mousemove",(e)=>{
