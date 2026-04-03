@@ -2,200 +2,238 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>President Simulator X ⚡️</title>
+<title>President Simulator X v2 ⚡️</title>
 
 <style>
 body {
   margin: 0;
   font-family: Arial;
-  background: #0b0b0b;
+  background: #0a0a0a;
   color: white;
 }
 
 #app {
-  max-width: 500px;
+  max-width: 600px;
   margin: auto;
   padding: 15px;
 }
 
-.header {
-  font-size: 24px;
-  text-align: center;
-  margin-bottom: 10px;
-}
+h1 { text-align:center; }
 
 .stats {
-  background: #111;
-  padding: 10px;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  background:#111;
+  padding:10px;
+  border-radius:10px;
 }
 
 .bar {
-  height: 10px;
-  background: #333;
-  border-radius: 10px;
-  margin: 5px 0;
+  height:12px;
+  background:#333;
+  border-radius:10px;
+  margin:6px 0;
 }
 
 .fill {
-  height: 100%;
-  border-radius: 10px;
+  height:100%;
+  border-radius:10px;
+  transition:0.3s;
 }
 
+.money { background:gold; }
+.happy { background:lime; }
+.mil { background:red; }
+.stab { background:cyan; }
+.pop { background:orange; }
+
 #messages {
-  height: 250px;
-  overflow-y: auto;
-  background: #111;
-  padding: 10px;
-  border-radius: 10px;
+  height:260px;
+  overflow-y:auto;
+  background:#111;
+  padding:10px;
+  border-radius:10px;
+  margin-top:10px;
 }
 
 .msg {
-  background: #222;
-  padding: 10px;
-  border-radius: 10px;
-  margin: 5px 0;
+  background:#222;
+  padding:10px;
+  border-radius:10px;
+  margin:5px 0;
 }
 
-.choice {
-  display: block;
-  width: 100%;
-  margin: 5px 0;
-  padding: 10px;
-  border: none;
-  border-radius: 10px;
-  background: #4CAF50;
-  color: white;
-  cursor: pointer;
+button {
+  width:100%;
+  margin:5px 0;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#4CAF50;
+  color:white;
+  cursor:pointer;
 }
 
-.choice:hover { background: #45a049; }
+button:hover { background:#45a049; }
 </style>
 </head>
 
 <body>
 
 <div id="app">
-
-<div class="header">🌍 PRESIDENT X ⚡️</div>
+<h1>🌍 PRESIDENT X v2 ⚡️</h1>
 
 <div class="stats">
-  💰 Money <div class="bar"><div id="moneyBar" class="fill"></div></div>
-  😊 Happiness <div class="bar"><div id="happyBar" class="fill"></div></div>
-  ⚔️ Military <div class="bar"><div id="milBar" class="fill"></div></div>
-  🧠 Stability <div class="bar"><div id="stabBar" class="fill"></div></div>
+Day: <span id="day">1</span>
+
+💰 Money <div class="bar"><div id="money" class="fill money"></div></div>
+😊 Happiness <div class="bar"><div id="happy" class="fill happy"></div></div>
+⚔️ Military <div class="bar"><div id="mil" class="fill mil"></div></div>
+🧠 Stability <div class="bar"><div id="stab" class="fill stab"></div></div>
+👥 Population <div class="bar"><div id="pop" class="fill pop"></div></div>
 </div>
 
 <div id="messages"></div>
-
 <div id="choices"></div>
 
 </div>
 
 <script>
 let stats = {
-  money: 50,
-  happy: 50,
-  mil: 50,
-  stab: 50
+  money:50,
+  happy:50,
+  mil:50,
+  stab:50,
+  pop:50
 };
 
-function updateBars(){
-  document.getElementById("moneyBar").style.width = stats.money+"%";
-  document.getElementById("happyBar").style.width = stats.happy+"%";
-  document.getElementById("milBar").style.width = stats.mil+"%";
-  document.getElementById("stabBar").style.width = stats.stab+"%";
+let day = 1;
+
+function update(){
+  document.getElementById("day").innerText = day;
+
+  for(let k in stats){
+    document.getElementById(k).style.width = stats[k]+"%";
+  }
 }
 
-function addMessage(text){
-  let div = document.createElement("div");
-  div.className = "msg";
-  div.innerText = text;
-  document.getElementById("messages").appendChild(div);
-  document.getElementById("messages").scrollTop = 9999;
+function msg(t){
+  let d=document.createElement("div");
+  d.className="msg";
+  d.innerText=t;
+  messages.appendChild(d);
+  messages.scrollTop=9999;
 }
 
 function clamp(){
   for(let k in stats){
-    if(stats[k] > 100) stats[k] = 100;
-    if(stats[k] < 0) stats[k] = 0;
+    stats[k]=Math.max(0,Math.min(100,stats[k]));
   }
 }
 
 function gameOver(){
-  if(stats.stab <= 0){
-    addMessage("💀 Your country collapsed.");
+  if(stats.stab<=0){
+    msg("💀 Government collapsed.");
     setTimeout(()=>location.reload(),2000);
   }
 }
 
-function randomEvent(){
-  let events = [
+function random(min,max){
+  return Math.floor(Math.random()*(max-min+1))+min;
+}
 
-    {
-      text: "Riots are spreading in the capital!",
-      choices: [
-        {t:"Send military", e:()=>{stats.mil+=5; stats.happy-=15; stats.stab+=5}},
-        {t:"Negotiate", e:()=>{stats.happy+=10; stats.stab+=5}},
-        {t:"Ignore", e:()=>{stats.stab-=10}}
-      ]
-    },
+function createEvent(){
 
-    {
-      text: "Foreign country offers alliance.",
-      choices: [
-        {t:"Accept", e:()=>{stats.mil+=10; stats.money+=5}},
-        {t:"Reject", e:()=>{stats.stab+=5}},
-        {t:"Demand money", e:()=>{stats.money+=15; stats.stab-=5}}
-      ]
-    },
+  let type = random(1,5);
 
-    {
-      text: "Economic boom opportunity!",
-      choices: [
-        {t:"Invest heavily", e:()=>{stats.money+=20; stats.happy-=5}},
-        {t:"Play safe", e:()=>{stats.money+=10}},
-        {t:"Ignore", e:()=>{stats.money-=5}}
-      ]
-    }
+  let text="";
+  let choices=[];
 
-  ];
+  if(type===1){
+    text="📢 Citizens demand better living conditions!";
+    choices=[
+      {t:"Increase funding", e:()=>{stats.money-=10;stats.happy+=15}},
+      {t:"Ignore", e:()=>{stats.happy-=10;stats.stab-=5}},
+      {t:"Tax rich", e:()=>{stats.money+=15;stats.happy+=5}},
+      {t:"Force control", e:()=>{stats.mil+=5;stats.happy-=15}}
+    ];
+  }
 
-  let e = events[Math.floor(Math.random()*events.length)];
-  addMessage("📢 " + e.text);
+  if(type===2){
+    text="⚔️ Border tension rising!";
+    choices=[
+      {t:"Prepare army", e:()=>{stats.mil+=15;stats.money-=10}},
+      {t:"Negotiate", e:()=>{stats.stab+=10}},
+      {t:"Ignore", e:()=>{stats.stab-=10}},
+      {t:"Spy operation", e:()=>{stats.mil+=5;stats.stab+=5}}
+    ];
+  }
 
-  let choicesDiv = document.getElementById("choices");
-  choicesDiv.innerHTML = "";
+  if(type===3){
+    text="💰 Economic opportunity appears!";
+    choices=[
+      {t:"Invest big", e:()=>{stats.money+=20;stats.stab-=5}},
+      {t:"Small invest", e:()=>{stats.money+=10}},
+      {t:"Ignore", e:()=>{stats.money-=5}},
+      {t:"Corruption", e:()=>{stats.money+=25;stats.happy-=20}}
+    ];
+  }
 
-  e.choices.forEach(c=>{
-    let btn = document.createElement("button");
-    btn.className = "choice";
-    btn.innerText = c.t;
-    btn.onclick = ()=>{
+  if(type===4){
+    text="🌪️ Natural disaster hits!";
+    choices=[
+      {t:"Help citizens", e:()=>{stats.money-=15;stats.happy+=15}},
+      {t:"Ignore", e:()=>{stats.pop-=15;stats.stab-=10}},
+      {t:"Military aid", e:()=>{stats.mil-=5;stats.stab+=5}},
+      {t:"Take advantage", e:()=>{stats.money+=10;stats.happy-=15}}
+    ];
+  }
+
+  if(type===5){
+    text="🧠 Political scandal exposed!";
+    choices=[
+      {t:"Deny", e:()=>{stats.stab-=10}},
+      {t:"Apologize", e:()=>{stats.happy+=5;stats.stab+=5}},
+      {t:"Blame others", e:()=>{stats.stab-=5;stats.mil+=5}},
+      {t:"Cover up", e:()=>{stats.money-=10;stats.stab+=10}}
+    ];
+  }
+
+  msg(text);
+
+  let cdiv=document.getElementById("choices");
+  cdiv.innerHTML="";
+
+  choices.forEach(c=>{
+    let b=document.createElement("button");
+    b.innerText=c.t;
+
+    b.onclick=()=>{
       c.e();
 
-      // RANDOM CHAOS EFFECT 😈
-      let chaos = Math.random();
-      if(chaos > 0.7){
-        let penalty = Math.floor(Math.random()*10);
-        stats.stab -= penalty;
-        addMessage("⚠️ Unexpected consequence! -" + penalty + " stability");
+      // RANDOM EFFECT
+      let chaos=random(0,1);
+      if(chaos){
+        let k=Object.keys(stats)[random(0,4)];
+        let change=random(-10,10);
+        stats[k]+=change;
+        msg("⚠️ Unexpected effect: "+k+" "+(change>0?"+":"")+change);
       }
 
       clamp();
-      updateBars();
+      update();
       gameOver();
 
-      setTimeout(randomEvent, 1000);
+      day++;
+      setTimeout(createEvent,500);
     };
-    choicesDiv.appendChild(btn);
+
+    cdiv.appendChild(b);
   });
+
 }
 
-updateBars();
-addMessage("👑 Welcome President. Your country awaits...");
-setTimeout(randomEvent, 1000);
+update();
+msg("👑 Welcome President. Lead wisely...");
+setTimeout(createEvent,1000);
 
 </script>
 
