@@ -1,24 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>President Simulator 🌍</title>
+<title>President Simulator X ⚡️</title>
 
 <style>
 body {
   margin: 0;
   font-family: Arial;
-  background: linear-gradient(135deg, #0a0a0a, #1c1c1c);
+  background: #0b0b0b;
   color: white;
-  text-align: center;
 }
 
-.screen { display: none; padding: 20px; }
-.active { display: block; }
+#app {
+  max-width: 500px;
+  margin: auto;
+  padding: 15px;
+}
 
-button {
-  padding: 12px 20px;
-  margin: 10px;
+.header {
+  font-size: 24px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.stats {
+  background: #111;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.bar {
+  height: 10px;
+  background: #333;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 10px;
+}
+
+#messages {
+  height: 250px;
+  overflow-y: auto;
+  background: #111;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.msg {
+  background: #222;
+  padding: 10px;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.choice {
+  display: block;
+  width: 100%;
+  margin: 5px 0;
+  padding: 10px;
   border: none;
   border-radius: 10px;
   background: #4CAF50;
@@ -26,146 +70,133 @@ button {
   cursor: pointer;
 }
 
-button:hover { background: #45a049; }
-
-.card {
-  background: #222;
-  padding: 20px;
-  margin: 20px auto;
-  width: 300px;
-  border-radius: 15px;
-}
-
-.stat { margin: 10px 0; }
-
+.choice:hover { background: #45a049; }
 </style>
 </head>
 
 <body>
 
-<!-- MENU -->
-<div id="menu" class="screen active">
-  <h1>🌍 President Simulator</h1>
-  <button onclick="startStory()">Story Mode 📖</button>
-  <button onclick="goCountry()">Free Play 🌐</button>
+<div id="app">
+
+<div class="header">🌍 PRESIDENT X ⚡️</div>
+
+<div class="stats">
+  💰 Money <div class="bar"><div id="moneyBar" class="fill"></div></div>
+  😊 Happiness <div class="bar"><div id="happyBar" class="fill"></div></div>
+  ⚔️ Military <div class="bar"><div id="milBar" class="fill"></div></div>
+  🧠 Stability <div class="bar"><div id="stabBar" class="fill"></div></div>
 </div>
 
-<!-- COUNTRY SELECT -->
-<div id="country" class="screen">
-  <h2>Choose Country</h2>
-  <button onclick="selectCountry('USA')">USA 🇺🇸</button>
-  <button onclick="selectCountry('UK')">UK 🇬🇧</button>
-  <button onclick="selectCountry('Japan')">Japan 🇯🇵</button>
+<div id="messages"></div>
 
-  <h3>Custom Country</h3>
-  <input id="customName" placeholder="Enter name">
-  <button onclick="createCustom()">Create ✍️</button>
-</div>
-
-<!-- GAME -->
-<div id="game" class="screen">
-
-  <h2 id="countryName"></h2>
-
-  <div class="card">
-    <p class="stat">💰 Economy: <span id="eco">50</span></p>
-    <p class="stat">😊 Happiness: <span id="happy">50</span></p>
-    <p class="stat">⚔️ Military: <span id="mil">50</span></p>
-  </div>
-
-  <div class="card">
-    <p id="eventText">Welcome, President.</p>
-    <button onclick="choice(1)">Option 1</button>
-    <button onclick="choice(2)">Option 2</button>
-  </div>
+<div id="choices"></div>
 
 </div>
 
 <script>
-let eco = 50;
-let happy = 50;
-let mil = 50;
+let stats = {
+  money: 50,
+  happy: 50,
+  mil: 50,
+  stab: 50
+};
 
-let currentEvent = 0;
-let country = "";
-
-const events = [
-  {
-    text: "Your people demand lower taxes.",
-    c1: () => { eco -= 10; happy += 10; },
-    c2: () => { eco += 10; happy -= 10; }
-  },
-  {
-    text: "Neighbor country is threatening you.",
-    c1: () => { mil += 10; eco -= 5; },
-    c2: () => { happy += 5; mil -= 5; }
-  },
-  {
-    text: "Economic crisis hits!",
-    c1: () => { eco += 15; happy -= 10; },
-    c2: () => { eco -= 5; happy += 5; }
-  }
-];
-
-function show(screen){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(screen).classList.add('active');
+function updateBars(){
+  document.getElementById("moneyBar").style.width = stats.money+"%";
+  document.getElementById("happyBar").style.width = stats.happy+"%";
+  document.getElementById("milBar").style.width = stats.mil+"%";
+  document.getElementById("stabBar").style.width = stats.stab+"%";
 }
 
-function startStory(){
-  show("country");
+function addMessage(text){
+  let div = document.createElement("div");
+  div.className = "msg";
+  div.innerText = text;
+  document.getElementById("messages").appendChild(div);
+  document.getElementById("messages").scrollTop = 9999;
 }
 
-function goCountry(){
-  show("country");
-}
-
-function selectCountry(name){
-  country = name;
-  startGame();
-}
-
-function createCustom(){
-  let name = document.getElementById("customName").value;
-  if(name){
-    country = name;
-    startGame();
+function clamp(){
+  for(let k in stats){
+    if(stats[k] > 100) stats[k] = 100;
+    if(stats[k] < 0) stats[k] = 0;
   }
 }
 
-function startGame(){
-  document.getElementById("countryName").innerText = "President of " + country;
-  show("game");
-  nextEvent();
-}
-
-function nextEvent(){
-  let e = events[currentEvent];
-  document.getElementById("eventText").innerText = e.text;
-}
-
-function choice(num){
-  let e = events[currentEvent];
-
-  if(num === 1) e.c1();
-  else e.c2();
-
-  updateStats();
-
-  currentEvent++;
-  if(currentEvent >= events.length){
-    alert("End of demo 👀 more coming...");
-    currentEvent = 0;
+function gameOver(){
+  if(stats.stab <= 0){
+    addMessage("💀 Your country collapsed.");
+    setTimeout(()=>location.reload(),2000);
   }
-
-  nextEvent();
 }
 
-function updateStats(){
-  document.getElementById("eco").innerText = eco;
-  document.getElementById("happy").innerText = happy;
-  document.getElementById("mil").innerText = mil;
+function randomEvent(){
+  let events = [
+
+    {
+      text: "Riots are spreading in the capital!",
+      choices: [
+        {t:"Send military", e:()=>{stats.mil+=5; stats.happy-=15; stats.stab+=5}},
+        {t:"Negotiate", e:()=>{stats.happy+=10; stats.stab+=5}},
+        {t:"Ignore", e:()=>{stats.stab-=10}}
+      ]
+    },
+
+    {
+      text: "Foreign country offers alliance.",
+      choices: [
+        {t:"Accept", e:()=>{stats.mil+=10; stats.money+=5}},
+        {t:"Reject", e:()=>{stats.stab+=5}},
+        {t:"Demand money", e:()=>{stats.money+=15; stats.stab-=5}}
+      ]
+    },
+
+    {
+      text: "Economic boom opportunity!",
+      choices: [
+        {t:"Invest heavily", e:()=>{stats.money+=20; stats.happy-=5}},
+        {t:"Play safe", e:()=>{stats.money+=10}},
+        {t:"Ignore", e:()=>{stats.money-=5}}
+      ]
+    }
+
+  ];
+
+  let e = events[Math.floor(Math.random()*events.length)];
+  addMessage("📢 " + e.text);
+
+  let choicesDiv = document.getElementById("choices");
+  choicesDiv.innerHTML = "";
+
+  e.choices.forEach(c=>{
+    let btn = document.createElement("button");
+    btn.className = "choice";
+    btn.innerText = c.t;
+    btn.onclick = ()=>{
+      c.e();
+
+      // RANDOM CHAOS EFFECT 😈
+      let chaos = Math.random();
+      if(chaos > 0.7){
+        let penalty = Math.floor(Math.random()*10);
+        stats.stab -= penalty;
+        addMessage("⚠️ Unexpected consequence! -" + penalty + " stability");
+      }
+
+      clamp();
+      updateBars();
+      gameOver();
+
+      setTimeout(randomEvent, 1000);
+    };
+    choicesDiv.appendChild(btn);
+  });
 }
+
+updateBars();
+addMessage("👑 Welcome President. Your country awaits...");
+setTimeout(randomEvent, 1000);
+
 </script>
 
 </body>
